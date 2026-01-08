@@ -19,13 +19,14 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import ClassVar
 
 import os
 import hashlib
 
-PASS = "e759968ca9278b8dde9f515ff1957813343dc35dbd2e5f68b38b5a17e29fe541"
-DEFAULT_STR = ""
-DEV_HASH = { "dev": PASS }
+PASS:        str            = "e759968ca9278b8dde9f515ff1957813343dc35dbd2e5f68b38b5a17e29fe541"
+DEFAULT_STR: str            = ""
+DEV_HASH:    dict[str, str] = { "dev": PASS }
 
 def SHA256_hex(s: str) -> str:
     """
@@ -35,12 +36,13 @@ def SHA256_hex(s: str) -> str:
 
 def verify_pass(password: str) -> str:
     """
-    TODO
+    Return role name if password hash matches one of DEV_HASH entries,
+    otherwise return default role "user".
     """
     _hex = SHA256_hex(password)
-    role, expected = list(map(list, DEV_HASH.items()))[0]
-    if _hex == expected:
-        return role
+    for role, expected in DEV_HASH.items():
+        if _hex == expected:
+            return role
     return "user"
 
 def profile_load(profile: str) -> None:
@@ -65,20 +67,14 @@ class Profiles:
     USER: str = "user"
     DEV: str  = "dev"
 
-@dataclass(frozen=True)
 class DefaultDirectories:
     """
-    TODO
+    Default directory layout for SDA runtime.
     """
-    root  = Path.cwd().resolve()
-
-    '''
-    If program starts in root (working directory) then "sda/" locates in current directory.
-    Otherwise, program started in the .venv, then so we need to go to the parrent directory.
-    '''
-    SDA   = (root / "sda") if (root / "sda").exists() else (root.parent / "sda")
-    DATA  = SDA / "data" / "data"
-    CACHE = SDA / "data" / "cache"
+    root: Path = Path.cwd().resolve()
+    SDA: Path = (root / "sda") if (root / "sda").exists() else (root.parent / "sda")
+    DATA: Path = SDA / "data" / "data"
+    CACHE: Path = SDA / "data" / "cache"
 
 @dataclass(frozen=True)
 class EnvFields:
@@ -130,20 +126,18 @@ class PostgresDefaults:
     PASS: str = DEFAULT_STR
 
 
-load_dotenv()
-
 class Config(BaseSettings):
     """
     Runtime config.
     v0.0.1: user credentials + localhost API key live in .env
     """
-    model_config = SettingsConfigDict(extra="ignore")
-    EF           = EnvFields()
-    EFN          = EnvFileNames()
-    PD           = PostgresDefaults()
-    LL           = LogLevels()
-    DD           = DefaultDirectories()
-    P            = Profiles()
+    model_config                      = SettingsConfigDict(extra="ignore")
+    EF: ClassVar[EnvFields]           = EnvFields()
+    EFN: ClassVar[EnvFileNames]       = EnvFileNames()
+    PD: ClassVar[PostgresDefaults]    = PostgresDefaults()
+    LL: ClassVar[LogLevels]           = LogLevels()
+    DD: ClassVar[DefaultDirectories]  = DefaultDirectories()
+    P: ClassVar[Profiles]             = Profiles() 
 
     profile: str    = Field(default=P.USER, alias=EF.SDA_PROFILE)
     data_dir: str   = Field(default=str(DD.DATA), alias=EF.SDA_DATA_DIR)
@@ -179,7 +173,11 @@ class Config(BaseSettings):
         return f"postgresql+psycopg://{self.pg_user}:{self.pg_pass}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
 
 
-def get_config(profile: str | None = Profiles.USER) -> Config:
-    p = profile or os.getenv(EnvFields.SDA_PROFILE, Profiles.USER)
+def get_config(profile: str | None = None) -> Config:
+    EF = EnvFields()
+    P  = Profiles()
+
+    p = profile or os.getenv(EF.SDA_PROFILE, P.USER)
     profile_load(p)
+
     return Config()
