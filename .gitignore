@@ -1,2 +1,8 @@
-.git/
+.venv/
 .env
+*.ipynb
+sda/tests/
+.ipynb_checkpoints/
+sda/data/data/
+sda/data/cache/
+
