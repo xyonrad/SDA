@@ -6,8 +6,6 @@ from sqlalchemy import select
 from sda.db.session import get_session
 from sda.auth.config import DEFAULT_STR
 from sda.models.user import User
-from sda.auth import verify_pass
-
 
 def create_user(
         login: str,

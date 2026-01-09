@@ -15,7 +15,154 @@ from sqlalchemy import select
 
 from sda.db.session import get_session
 from sda.models.scene import Scene
+from sda.models.scene_asset import SceneAsset
+from sda.db.assets import register_asset, list_assets_one, get_asset, delete_asset
 
+
+def create_scene(
+    product_id: str,
+    satellite: str,
+    tile: str,
+    acquisition_time: datetime,
+    crs: str,
+    transform: list[float],
+    width: int,
+    height: int,
+    lon_min: float,
+    lat_min: float,
+    lon_max: float,
+    lat_max: float,
+    *,
+    processing_level: str = "L2A",
+    source_zip: str = "",
+) -> Scene:
+    """
+    Create and persist a Scene row for one satellite acquisition.
+
+    Args:
+        product_id       – Sentinel product identifier.
+        satellite        – satellite name (e.g. "S2A", "S2B", "S2C").
+        tile             – tile code (e.g. "T41VNE").
+        acquisition_time – acquisition timestamp (UTC).
+        crs              – CRS string (e.g. "EPSG:32641").
+        transform        – affine transform coefficients (length 9).
+        width            – raster width in pixels.
+        height           – raster height in pixels.
+        lon_min          – western longitude.
+        lat_min          – southern latitude.
+        lon_max          – eastern longitude.
+        lat_max          – northern latitude.
+        processing_level – processing level label (default "L2A").
+        source_zip       – source archive path (optional).
+    """
+    if not product_id:
+        raise ValueError("create_scene(): product_id is required.")
+    if not satellite:
+        raise ValueError("create_scene(): satellite is required.")
+    if not tile:
+        raise ValueError("create_scene(): tile is required.")
+    if acquisition_time is None:
+        raise ValueError("create_scene(): acquisition_time is required.")
+    if not crs:
+        raise ValueError("create_scene(): crs is required.")
+    if not transform or len(transform) != 9:
+        raise ValueError("create_scene(): transform must have length 9.")
+    if width <= 0 or height <= 0:
+        raise ValueError("create_scene(): width and height must be positive.")
+
+    session = get_session()
+    scene = Scene(
+        product_id=product_id,
+        satellite=satellite,
+        tile=tile,
+        acquisition_time=acquisition_time,
+        crs=crs,
+        transform=transform,
+        width=width,
+        height=height,
+        lon_min=lon_min,
+        lat_min=lat_min,
+        lon_max=lon_max,
+        lat_max=lat_max,
+        processing_level=processing_level,
+        source_zip=source_zip,
+        created_at=datetime.utcnow(),
+    )
+    session.add(scene)
+    session.commit()
+    session.refresh(scene)
+    return scene
+
+
+def create_scene_asset(
+    scene_id: int,
+    kind: str,
+    resolution_m: int,
+    dtype: str,
+    path: str,
+    *,
+    is_resampled: bool = False,
+    sha256: str | None = None,
+) -> SceneAsset:
+    """
+    Create and persist a SceneAsset row using the assets helper.
+    """
+    return register_asset(
+        scene_id=scene_id,
+        kind=kind,
+        resolution_m=resolution_m,
+        dtype=dtype,
+        path=path,
+        is_resampled=is_resampled,
+        sha256=sha256,
+    )
+
+
+def list_scene_assets(scene_id: int) -> list[SceneAsset]:
+    """
+    List all assets for a scene by internal scene id.
+    """
+    return list_assets_one(scene_id)
+
+
+def list_scene_assets_by_product_id(product_id: str) -> list[SceneAsset]:
+    """
+    List all assets for a scene by Sentinel product_id.
+    """
+    scene = get_scene_by_product_id(product_id)
+    if scene is None:
+        return []
+    return list_assets_one(scene.id)
+
+
+def get_scene_with_assets(scene_id: int) -> tuple[Scene | None, list[SceneAsset]]:
+    """
+    Return a scene and its assets in one call.
+    """
+    scene = get_scene_by_pk(scene_id)
+    if scene is None:
+        return None, []
+    return scene, list_assets_one(scene_id)
+
+
+def get_scene_asset(scene_id: int, kind: str) -> Optional[SceneAsset]:
+    """
+    Return a single asset for a scene by kind.
+    """
+    return get_asset(scene_id, kind)
+
+
+def delete_scene_with_assets(scene_id: int) -> bool:
+    """
+    Delete a scene and all attached assets.
+
+    Returns:
+        True if the scene existed and was deleted, False otherwise.
+    """
+    assets = list_assets_one(scene_id)
+    for asset in assets:
+        delete_asset(asset.id)
+    return delete_scene_by_pk(scene_id)
 
 # ---------------------------------------------------------------------------
 # Get (single)
@@ -188,4 +335,3 @@ def delete_scene_by_product(product_id: str) -> bool:
     session.delete(scene)
     session.commit()
     return True
-
