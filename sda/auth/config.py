@@ -28,22 +28,22 @@ PASS:        str            = "e759968ca9278b8dde9f515ff1957813343dc35dbd2e5f68b
 DEFAULT_STR: str            = ""
 DEV_HASH:    dict[str, str] = { "dev": PASS }
 
-def SHA256_hex(s: str) -> str:
+def sha256_hex(s: str) -> str:
     """
-    Encoding the string 's' to the SHA256 hex
+    Encoding the string 's' to the sha256 hex
     """
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-def verify_pass(password: str) -> str:
+def verify_pass(password: str) -> str | None:
     """
     Return role name if password hash matches one of DEV_HASH entries,
     otherwise return default role "user".
     """
-    _hex = SHA256_hex(password)
+    _hex = sha256_hex(password)
     for role, expected in DEV_HASH.items():
         if _hex == expected:
             return role
-    return "user"
+    return None
 
 def profile_load(profile: str) -> None:
     """
