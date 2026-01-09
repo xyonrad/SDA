@@ -1,17 +1,10 @@
 from __future__ import annotations
-'''
-1. Enables self-referential types without quotes;
-2. Allows mutual refs in the classes;
-3. Reduces import cycles for type checking;
-4. Lowers runtime cost;
-'''
 
 """
-File `config.py`
+Runtime configuration and environment loading for SDA.
 
-// TODO
-
-v0.0.1: user credentials + API key live in .env (move to the database)
+This module centralizes environment variable names, defaults, and
+Pydantic-based settings used by the CLI and DB initialization.
 """
 
 from pathlib import Path
@@ -30,14 +23,16 @@ DEV_HASH:    dict[str, str] = { "dev": PASS }
 
 def sha256_hex(s: str) -> str:
     """
-    Encoding the string 's' to the sha256 hex
+    Return the SHA256 hex digest for a UTF-8 string.
     """
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 def verify_pass(password: str) -> str | None:
     """
-    Return role name if password hash matches one of DEV_HASH entries,
-    otherwise return default role "user".
+    Return a role name if the password hash matches a DEV_HASH entry.
+
+    Returns:
+        Role name (e.g. "dev") if matched, otherwise None.
     """
     _hex = sha256_hex(password)
     for role, expected in DEV_HASH.items():
@@ -47,7 +42,9 @@ def verify_pass(password: str) -> str | None:
 
 def profile_load(profile: str) -> None:
     """
-    TODO
+    Load environment variables for the requested profile.
+
+    When profile is "dev" and .env.dev exists, load it; otherwise load .env.
     """
     file_names = EnvFileNames()
     if profile == "dev" and Path(file_names.DEV).exists():
@@ -62,7 +59,7 @@ def profile_load(profile: str) -> None:
 @dataclass(frozen=True)
 class Profiles:
     """
-    TODO
+    Supported configuration profiles.
     """
     USER: str = "user"
     DEV: str  = "dev"
@@ -101,7 +98,7 @@ class EnvFields:
 @dataclass(frozen=True)
 class LogLevels:
     """
-    TODO
+    Supported log level names for Loguru and configuration defaults.
     """
     INFO: str  = "INFO"
     DEBUG: str = "DEBUG"
@@ -109,7 +106,7 @@ class LogLevels:
 @dataclass(frozen=True)
 class EnvFileNames:
     """
-    TODO
+    Default environment file names used by profile_load().
     """
     USER: str = ".env"
     DEV: str  = ".env.dev"
@@ -117,7 +114,7 @@ class EnvFileNames:
 @dataclass(frozen=True)
 class PostgresDefaults:
     """
-    TODO
+    Default PostgreSQL connection values used when env vars are missing.
     """
     HOST: str = "localhost"
     PORT: int = 5432
@@ -128,8 +125,9 @@ class PostgresDefaults:
 
 class Config(BaseSettings):
     """
-    Runtime config.
-    v0.0.1: user credentials + localhost API key live in .env
+    Runtime configuration loaded from environment variables.
+
+    This uses Pydantic Settings so env var aliases map directly to fields.
     """
     model_config                      = SettingsConfigDict(extra="ignore")
     EF: ClassVar[EnvFields]           = EnvFields()
@@ -174,8 +172,13 @@ class Config(BaseSettings):
 
 
 def get_config(profile: str | None = None) -> Config:
+    """
+    Load environment variables for a profile and return a Config instance.
+
+    If profile is None, SDA_PROFILE from the environment is used.
+    """
     EF = EnvFields()
-    P  = Profiles()
+    P = Profiles()
 
     p = profile or os.getenv(EF.SDA_PROFILE, P.USER)
     profile_load(p)

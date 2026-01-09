@@ -38,10 +38,13 @@ def register_change(
     Register a single change-detection artifact.
 
     Args:
-        run_id   – pipeline run identifier (foreign key to Run).
-        kind     – change type, e.g. "delta_ndvi", "delta_nbr", "mask".
-        path     – filesystem / object-storage path of the artifact.
-        meta_data – optional JSON metadata (thresholds, parameters, CRS, etc.).
+        scene_before_id – Scene id for the "before" timestamp.
+        scene_after_id  – Scene id for the "after" timestamp.
+        index_name      – index name the change is computed from (e.g. "NDVI").
+        method          – computation method (e.g. "diff", "zscore", "seasonal").
+        thresholds      – JSON-ready threshold settings for masks or alerts.
+        path            – filesystem or object-storage path of the artifact.
+        sha256          – content hash of the artifact for integrity checks.
     """
     if not scene_before_id or not scene_after_id:
         raise ValueError("register_change(): scene ids required")
@@ -73,7 +76,7 @@ def register_change(
 
 def get_change(change_id: int) -> Optional[Change]:
     """
-    Get a single change artifact by run and kind.
+    Get a single change artifact by its primary key.
 
     Returns:
         Change or None if not found.
@@ -83,7 +86,7 @@ def get_change(change_id: int) -> Optional[Change]:
 
 def list_changes_for_scene(scene_id: int) -> list[Change]:
     """
-    TODO: Comment the function functionality
+    List all change artifacts where the given scene is either before or after.
     """
     session = get_session()
     stmt = select(Change).where(
@@ -94,7 +97,10 @@ def list_changes_for_scene(scene_id: int) -> list[Change]:
 
 def delete_change(change_id: int) -> bool:
     """
-    TODO: Comment the function functionality
+    Delete a change artifact by its primary key.
+
+    Returns:
+        True if the row existed and was deleted, False otherwise.
     """
     session = get_session()
     obj = session.get(Change, change_id)

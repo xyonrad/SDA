@@ -64,7 +64,7 @@ def db_info() -> Dict[str, Any]:
             "dialect": str,
             "driver": str,
             "url": str,           # password redacted
-            "tables": [str, ...],
+            "tables": list[str],
         }
     """
     engine = get_engine()
@@ -87,6 +87,4 @@ def db_info() -> Dict[str, Any]:
         info["ok"] = False
 
     return info
-
-# TODO: add etc. functions (latency checks, per-table stats, index health, etc.)
 

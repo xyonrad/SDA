@@ -21,8 +21,8 @@ class Base(DeclarativeBase):
         class User(Base):
             __tablename__ = "users"
 
-            id: Mapped[int] = mapped_column(primary_key=True)
-            ...
+            id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+            login: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     """
     pass
 
@@ -78,4 +78,3 @@ def init_code(sql: str, engine: Optional[Engine] = None) -> None:
     # Use a transactional context; commit on success, rollback on error.
     with engine.begin() as conn:
         conn.execute(text(sql))
-

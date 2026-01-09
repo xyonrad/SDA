@@ -65,7 +65,8 @@ def session_scope() -> Generator[Session, None, None]:
     Usage:
         with session_scope() as session:
             # use `session` here
-            ...
+            session.add(obj)
+            session.flush()
 
     On successful exit:
         - commits the transaction
@@ -133,4 +134,3 @@ def close_session() -> None:
         session.close()
     finally:
         _CURRENT_SESSION.set(None)
-

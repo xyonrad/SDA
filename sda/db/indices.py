@@ -8,6 +8,7 @@ IndexFeature  – describes scalar features extracted from an artifact (e.g. mea
 """
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from sqlalchemy import select
@@ -26,15 +27,17 @@ def _now() -> datetime:
     return datetime.utcnow()
 
 def _hash_path(path: str) -> str:
-    """
-    Deterministic sha256 placeholder.
-
-    Contract:
-        - Always non-null
-        - Stable for the same path
-        - Cheap (no file IO)
-    """
     return hashlib.sha256(path.encode("utf-8")).hexdigest()
+
+def _hash_file_or_path(path: str) -> str:
+    """
+    Return the SHA256 of file contents when the file exists,
+    otherwise fall back to a deterministic hash of the path string.
+    """
+    candidate = Path(path)
+    if candidate.is_file():
+        return hashlib.sha256(candidate.read_bytes()).hexdigest()
+    return _hash_path(path)
 
 # ---------------------------------------------------------------------------
 # Registration
@@ -58,7 +61,7 @@ def register_index_path(
         path       – filesystem or object storage path
 
     Optional:
-        metadata   – arbitrary JSON-serializable dictionary
+        meta_data  – arbitrary JSON-serializable dictionary
                      (CRS, resolution, processing options, etc.)
     """
     if not scene_id:
@@ -75,7 +78,7 @@ def register_index_path(
         index_name=index_name,
         resolution_m=resolution_m,
         path=path,
-        sha256=sha256 or _hash_path(path),
+        sha256=sha256 or _hash_file_or_path(path),
         meta_data=meta_data or {},
         created_at=_now(),
         updated_at=_now(),
@@ -167,7 +170,8 @@ def update_index(
     """
     Update a single index artifact.
 
-    Only provided fields are updated.
+    Only provided fields are updated. The metadata argument updates
+    IndexArtifact.meta_data.
 
     Returns:
         True if artifact existed and was updated, False otherwise.
@@ -184,7 +188,7 @@ def update_index(
         changed = True
 
     if metadata is not None:
-        artifact.metadata = metadata
+        artifact.meta_data = metadata
         changed = True
 
     if changed:
@@ -329,4 +333,3 @@ def delete_indices(*artifact_ids: int) -> int:
         if delete_index(artifact_id):
             deleted += 1
     return deleted
-

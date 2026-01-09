@@ -12,7 +12,6 @@ from typing import Optional, Iterable
 from sqlalchemy import select
 
 from sda.db.session import get_session
-# TODO: implement Run class
 from sda.models.run import Run
 
 
@@ -207,4 +206,3 @@ def delete_run_all() -> int:
     session.commit()
 
     return count
-
